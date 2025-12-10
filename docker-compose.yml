@@ -1,0 +1,58 @@
+services:
+  # Servicio de Base de Datos (MySQL)
+  db:
+    image: mysql:8.0
+    container_name: intermodular-db
+    environment:
+      MYSQL_ROOT_PASSWORD: password123
+      MYSQL_DATABASE: gestion_proyectos
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password123
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --event-scheduler=ON
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      - ./backend/db/gestion_proyectos.sql:/docker-entrypoint-initdb.d/1-gestion_proyectos.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword123" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Servicio del Backend (Node.js API)
+  backend:
+    build: ./backend
+    container_name: intermodular-backend
+    ports:
+      - "4000:4000"
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=password123
+      - DB_NAME=gestion_proyectos
+      - DB_PORT=3306
+      - PORT=4000
+      - JWT_SECRET=supersecretkey123
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # Servicio del Frontend (React)
+  frontend:
+    build: ./frontend
+    container_name: intermodular-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:4000/api
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
